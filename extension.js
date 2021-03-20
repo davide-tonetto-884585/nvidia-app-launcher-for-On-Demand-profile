@@ -133,6 +133,7 @@ const Nvidia_pop = GObject.registerClass(
                 );
 
                 appItem.connect('activate', () => {
+                    Main.notify('Nvidia app launcher', 'Launching ' + app.get_name() + '...');
                     GLib.spawn_command_line_async(Me.dir.get_path() + '/nvidia_launch.sh ' + app.get_id());
                 });
 
