@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+
+    <schema id="org.gnome.shell.extensions.nvidia-app-launcher" path="/org/gnome/shell/extensions/nvidia-app-launcher/">
+
+        <key type="as" name="nal-sc">
+            <default><![CDATA[['<Super>n']]]></default>
+            <summary>shortcut to open the extension</summary>
+            <description></description>
+        </key>
+
+    </schema>
+</schemalist>
