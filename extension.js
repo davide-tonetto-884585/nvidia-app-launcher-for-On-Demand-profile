@@ -108,6 +108,14 @@ const Nvidia_pop = GObject.registerClass(
             itemScroll.actor.add(scrollView, { expand: false });
 
             this.menu.addMenuItem(itemScroll);
+
+            //----------------------- refresh app list on open ----------------------------
+            this.menu.connect('open-state-changed', (menu, open) => {
+                if (open) {
+                    this.listAllApps();
+                    this.refreshActionsBox();
+                }
+            });
         }
 
         onSearchTextChanged() {
@@ -148,6 +156,7 @@ const Nvidia_pop = GObject.registerClass(
                 appItem.connect('activate', () => {
                     Main.notify('Nvidia app launcher', 'Launching ' + app.get_name() + '...');
                     GLib.spawn_command_line_async(Me.dir.get_path() + '/nvidia_launch.sh ' + app.get_id());
+                    this.menu.close();
                 });
 
                 let pin_button = new St.Bin({
