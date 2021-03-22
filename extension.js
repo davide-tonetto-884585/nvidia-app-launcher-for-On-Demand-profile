@@ -6,6 +6,7 @@ const PanelMenu = imports.ui.panelMenu;
 const PopupMenu = imports.ui.popupMenu;
 const GObject = imports.gi.GObject;
 const Me = imports.misc.extensionUtils.getCurrentExtension();
+const ExtensionUtils = imports.misc.extensionUtils;
 const appSys = Shell.AppSystem.get_default();
 
 let nvidia_pop;
@@ -16,7 +17,9 @@ const Nvidia_pop = GObject.registerClass(
         constructor() {
             this.searchEntry = null;
             this.appList = null;
+            this.pinnedApps = null;
             this.actionsBox = null;
+            this.settings = null;
         }
 
         _init() {
@@ -70,7 +73,10 @@ const Nvidia_pop = GObject.registerClass(
 
             //------------------------------- app list -------------------------------------
             this.listAllApps();
-            this.sortAppList();
+            this.sortAppList(this.appList);
+
+            this.settings = getSettings();
+            this.pinnedApps = this.settings.get_strv('pinned-apps');
 
             let itemScroll = new PopupMenu.PopupBaseMenuItem({
                 reactive: false,
@@ -97,7 +103,7 @@ const Nvidia_pop = GObject.registerClass(
             scrollView.add_actor(this.actionsBox);
             scrollView.clip_to_allocation = true;
 
-            this.fillActionsBox(this.appList);
+            this.refreshActionsBox();
 
             itemScroll.actor.add(scrollView, { expand: false });
 
@@ -106,11 +112,13 @@ const Nvidia_pop = GObject.registerClass(
 
         onSearchTextChanged() {
             let searchedText = this.searchEntry.get_text();
-            this.actionsBox.destroy_all_children();
+            //Main.notify('Nvidia app launcher', searchedText);
 
             if (searchedText === '') {
-                this.fillActionsBox(this.appList);
+                this.refreshActionsBox();
             } else {
+                this.actionsBox.destroy_all_children();
+
                 this.fillActionsBox(
                     this.appList.filter(obj => obj.get_name().toLowerCase().indexOf(searchedText.toLowerCase()) >= 0)
                 );
@@ -127,9 +135,14 @@ const Nvidia_pop = GObject.registerClass(
                     iconText = appIcon.gicon.to_string();
                 }
 
+                let app_box = new St.BoxLayout({
+                    vertical: false
+                });
+
                 let appItem = new PopupMenu.PopupImageMenuItem(
                     app.get_name(),
                     Gio.icon_new_for_string(iconText),
+                    { style_class: "app_name" }
                 );
 
                 appItem.connect('activate', () => {
@@ -137,8 +150,63 @@ const Nvidia_pop = GObject.registerClass(
                     GLib.spawn_command_line_async(Me.dir.get_path() + '/nvidia_launch.sh ' + app.get_id());
                 });
 
-                this.actionsBox.add(appItem);
+                let pin_button = new St.Bin({
+                    reactive: true,
+                    can_focus: true,
+                    track_hover: true,
+                    height: 30,
+                    width: 30
+                });
+
+                let pin_ico = new St.Icon({
+                    gicon: Gio.icon_new_for_string(Me.dir.get_path() + (!this.pinnedApps.includes(app.get_id()) ? '/pin.ico' : '/unpin.ico')),
+                });
+
+                pin_button.set_child(pin_ico);
+
+                pin_button.connect('button-press-event', () => {
+                    if (!this.pinnedApps.includes(app.get_id())) {
+                        this.pinApp(app.get_id())
+                    } else {
+                        this.unpinApp(app.get_id())
+                    }
+
+                    this.refreshActionsBox();
+                });
+
+                app_box.add(appItem);
+                app_box.add(pin_button);
+
+                this.actionsBox.add(app_box);
             });
+        }
+
+        pinApp(app_id) {
+            this.pinnedApps.push(app_id);
+            this.settings.set_strv('pinned-apps', this.pinnedApps);
+        }
+
+        unpinApp(app_id) {
+            let index = this.pinnedApps.indexOf(app_id);
+            if (index !== -1) {
+                this.pinnedApps.splice(index, 1);
+                this.settings.set_strv('pinned-apps', this.pinnedApps);
+            }
+        }
+
+        refreshActionsBox() {
+            this.actionsBox.destroy_all_children();
+
+            let pinned = this.appList.filter(app => this.pinnedApps.includes(app.get_id()));
+            let notPinned = this.appList.filter(app => !this.pinnedApps.includes(app.get_id()));
+
+            if (pinned.length > 0) {
+                this.sortAppList(pinned);
+                this.fillActionsBox(pinned);
+                this.actionsBox.add(new PopupMenu.PopupSeparatorMenuItem());
+            }
+
+            this.fillActionsBox(notPinned);
         }
 
         listAllApps() {
@@ -152,8 +220,8 @@ const Nvidia_pop = GObject.registerClass(
             });
         }
 
-        sortAppList() {
-            this.appList.sort(function (a, b) {
+        sortAppList(appList) {
+            appList.sort(function (a, b) {
                 if (a.get_name().toLowerCase() > b.get_name().toLowerCase()) {
                     return 1;
                 }

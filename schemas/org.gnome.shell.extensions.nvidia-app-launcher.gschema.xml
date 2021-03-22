@@ -9,5 +9,11 @@
             <description></description>
         </key>
 
+        <key type="as" name="pinned-apps">
+            <default>[]</default>
+            <summary>summary</summary>
+            <description>description</description>
+        </key>
+
     </schema>
 </schemalist>
