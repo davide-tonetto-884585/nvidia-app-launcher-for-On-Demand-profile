@@ -1,3 +1,12 @@
-.app_name{
-    width: 400px;
+.app_name {
+  width: 400px;
+}
+
+.stats {
+  color: white;
+  padding-left: 15px;
+}
+
+.processes {
+  color: white;
 }

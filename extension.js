@@ -20,13 +20,18 @@ const Nvidia_pop = GObject.registerClass(
             this.pinnedApps = null;
             this.actionsBox = null;
             this.settings = null;
+            this.stats = null;
+            this.percentage = null;
+            this.memoryUsage = null;
+            this.boxProcesses = null;
+            this.subItemStats = null;
         }
 
         _init() {
             super._init(0); //0 - dx, 1 - sx
 
             let icon = new St.Icon({
-                gicon: Gio.icon_new_for_string(Me.dir.get_path() + '/icon.ico'),
+                gicon: Gio.icon_new_for_string(Me.dir.get_path() + '/icons/icon.ico'),
                 style_class: 'system-status-icon',
             });
 
@@ -71,10 +76,83 @@ const Nvidia_pop = GObject.registerClass(
             });
             //------------------------------ search box - end -----------------------------------------
 
-            //------------------------------- app list -------------------------------------
-            this.listAllApps();
-            this.sortAppList(this.appList);
+            //------------------------------ nvidia stats ------------------------------------------
 
+            this.stats = this.getNvidiaStats();
+
+            this.subItemStats = new PopupMenu.PopupSubMenuMenuItem('Nvidia stats', true);
+            this.subItemStats.icon.gicon = Gio.icon_new_for_string(Me.dir.get_path() + '/icons/stat.ico');
+
+            this.subItemStats.status = new St.Label({
+                text: this.stats.percentage,
+                y_expand: true,
+                y_align: Clutter.ActorAlign.CENTER
+            });
+            this.subItemStats.actor.insert_child_at_index(this.subItemStats.status, 4);
+
+            //PERCENTAGE
+            let usage = new PopupMenu.PopupBaseMenuItem({ reactive: false, style_class: 'stats' });
+            usage.add(new St.Icon({
+                style_class: 'popup-menu-icon',
+                gicon: Gio.icon_new_for_string(Me.dir.get_path() + '/icons/gpu.ico')
+            }));
+            usage.add(new St.Label({ text: 'GPU percentage:' }));
+            this.percentage = new St.Label({
+                text: this.stats.percentage,
+                x_align: Clutter.ActorAlign.END,
+                x_expand: true,
+                y_expand: true
+            });
+            usage.add(this.percentage);
+
+            //MEMORY USAGE
+            let memoryUsage = new PopupMenu.PopupBaseMenuItem({ reactive: false, style_class: 'stats' });
+            memoryUsage.add(new St.Icon({
+                style_class: 'popup-menu-icon',
+                gicon: Gio.icon_new_for_string(Me.dir.get_path() + '/icons/memory.ico')
+            }));
+            memoryUsage.add(new St.Label({ text: 'Total memory usage:' }));
+            this.memoryUsage = new St.Label({
+                text: this.stats.memoryUsage,
+                x_align: Clutter.ActorAlign.END,
+                x_expand: true,
+                y_expand: true
+            });
+            memoryUsage.add(this.memoryUsage);
+
+            //PROCESSES
+            let processes = new PopupMenu.PopupBaseMenuItem({ reactive: false, style_class: 'stats' });
+            processes.add(new St.Icon({
+                style_class: 'popup-menu-icon',
+                gicon: Gio.icon_new_for_string(Me.dir.get_path() + '/icons/processes.svg')
+            }));
+            processes.add(new St.Label({ text: 'Process name' }));
+            processes.add(new St.Label({
+                text: 'Memory usage',
+                x_align: Clutter.ActorAlign.END,
+                x_expand: true,
+                y_expand: true
+            }));
+
+            let processesMenuItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
+            this.boxProcesses = new St.BoxLayout({
+                vertical: true,
+                x_expand: true,
+            });
+            processesMenuItem.add(this.boxProcesses);
+
+            this.subItemStats.menu.addMenuItem(usage);
+            this.subItemStats.menu.addMenuItem(memoryUsage);
+            this.subItemStats.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+            this.subItemStats.menu.addMenuItem(processes);
+            this.subItemStats.menu.addMenuItem(processesMenuItem);
+
+            this.menu.addMenuItem(this.subItemStats);
+            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+
+            //------------------------------ mvidia stats end --------------------------
+
+            //------------------------------- app list -------------------------------------
             this.settings = getSettings();
             this.pinnedApps = this.settings.get_strv('pinned-apps');
 
@@ -103,19 +181,71 @@ const Nvidia_pop = GObject.registerClass(
             scrollView.add_actor(this.actionsBox);
             scrollView.clip_to_allocation = true;
 
-            this.refreshActionsBox();
-
             itemScroll.actor.add(scrollView, { expand: false });
 
             this.menu.addMenuItem(itemScroll);
 
             //----------------------- refresh app list on open ----------------------------
+            let timeout;
             this.menu.connect('open-state-changed', (menu, open) => {
                 if (open) {
+                    timeout = Mainloop.timeout_add_seconds(1.0, () => { this.refreshStats(this.getNvidiaStats()); return true; });
                     this.listAllApps();
+                    this.sortAppList(this.appList);
                     this.refreshActionsBox();
+                } else {
+                    Mainloop.source_remove(timeout);
                 }
             });
+        }
+
+        getNvidiaStats() {
+            try {
+                let out = GLib.spawn_command_line_sync('nvidia-smi');
+                out = out.toString();
+                let ind = out.search('%');
+                let percentage = out.slice(ind - 3, ind + 1).trim();
+
+                ind = out.indexOf("MiB |");
+                let memoryUsage = out.slice(ind - 18, ind + 3).trim();
+
+                let processes = [];
+                let processesMemory = [];
+                while (ind + 5 < out.length && out.indexOf("MiB |", ind + 5) != -1) {
+                    ind = out.indexOf("MiB |", ind + 5);
+                    let temp = out.slice(ind - 40, ind + 3).trim();
+                    processes.push(temp.slice(0, temp.indexOf('  ')).trim());
+                    processesMemory.push(temp.slice(temp.length - 6, temp.length).trim());
+                }
+
+                return { percentage, memoryUsage, processes, processesMemory };
+            } catch (error) {
+                return false;
+            }
+        }
+
+        refreshStats(newStats) {
+            this.subItemStats.status.set_text(newStats.percentage);
+            this.percentage.set_text(newStats.percentage);
+            this.memoryUsage.set_text(newStats.memoryUsage);
+
+            this.boxProcesses.destroy_all_children();
+            for (let i = 0; i < newStats.processes.length; i++) {
+                let process = new PopupMenu.PopupBaseMenuItem({ reactive: false, style_class: 'stats' });
+                process.add(new St.Icon({
+                    style_class: 'popup-menu-icon',
+                    gicon: Gio.icon_new_for_string(Me.dir.get_path() + '/icons/process.svg')
+                }));
+                process.add(new St.Label({ text: newStats.processes[i] }));
+                process.add(new St.Label({
+                    text: newStats.processesMemory[i],
+                    x_align: Clutter.ActorAlign.END,
+                    x_expand: true,
+                    y_expand: true
+                }));
+
+                this.boxProcesses.add(process);
+            }
         }
 
         onSearchTextChanged() {
@@ -138,8 +268,8 @@ const Nvidia_pop = GObject.registerClass(
                 app = Shell.AppSystem.get_default().lookup_app(app.get_id());
 
                 let appIcon = app.create_icon_texture(100);
-                let iconText;
-                if (appIcon instanceof St.Icon) {
+                let iconText = Me.dir.get_path() + '/icons/gear.ico';
+                if (appIcon instanceof St.Icon && appIcon.gicon != null) {
                     iconText = appIcon.gicon.to_string();
                 }
 
@@ -168,18 +298,19 @@ const Nvidia_pop = GObject.registerClass(
                 });
 
                 let pin_ico = new St.Icon({
-                    gicon: Gio.icon_new_for_string(Me.dir.get_path() + (!this.pinnedApps.includes(app.get_id()) ? '/pin.ico' : '/unpin.ico')),
+                    gicon: Gio.icon_new_for_string(Me.dir.get_path() + (!this.pinnedApps.includes(app.get_id()) ? '/icons/pin.ico' : '/icons/unpin.ico')),
                 });
 
                 pin_button.set_child(pin_ico);
 
                 pin_button.connect('button-press-event', () => {
                     if (!this.pinnedApps.includes(app.get_id())) {
-                        this.pinApp(app.get_id())
+                        this.pinApp(app.get_id());
                     } else {
-                        this.unpinApp(app.get_id())
+                        this.unpinApp(app.get_id());
                     }
 
+                    this.searchEntry.set_text('');
                     this.refreshActionsBox();
                 });
 
