@@ -80,75 +80,84 @@ const Nvidia_pop = GObject.registerClass(
 
             this.stats = this.getNvidiaStats();
 
-            this.subItemStats = new PopupMenu.PopupSubMenuMenuItem('Nvidia stats', true);
-            this.subItemStats.icon.gicon = Gio.icon_new_for_string(Me.dir.get_path() + '/icons/stat.ico');
+            if (this.stats !== false) {
+                this.subItemStats = new PopupMenu.PopupSubMenuMenuItem('Nvidia stats', true);
+                this.subItemStats.icon.gicon = Gio.icon_new_for_string(Me.dir.get_path() + '/icons/stat.ico');
 
-            this.subItemStats.status = new St.Label({
-                text: this.stats.percentage,
-                y_expand: true,
-                y_align: Clutter.ActorAlign.CENTER
-            });
-            this.subItemStats.actor.insert_child_at_index(this.subItemStats.status, 4);
+                this.subItemStats.status = new St.Label({
+                    text: this.stats.percentage,
+                    y_expand: true,
+                    y_align: Clutter.ActorAlign.CENTER
+                });
+                this.subItemStats.actor.insert_child_at_index(this.subItemStats.status, 4);
 
-            //PERCENTAGE
-            let usage = new PopupMenu.PopupBaseMenuItem({ reactive: false, style_class: 'stats' });
-            usage.add(new St.Icon({
-                style_class: 'popup-menu-icon',
-                gicon: Gio.icon_new_for_string(Me.dir.get_path() + '/icons/gpu.ico')
-            }));
-            usage.add(new St.Label({ text: 'GPU percentage:' }));
-            this.percentage = new St.Label({
-                text: this.stats.percentage,
-                x_align: Clutter.ActorAlign.END,
-                x_expand: true,
-                y_expand: true
-            });
-            usage.add(this.percentage);
+                //PERCENTAGE
+                let usage = new PopupMenu.PopupBaseMenuItem({ reactive: false, style_class: 'stats' });
+                usage.add(new St.Icon({
+                    style_class: 'popup-menu-icon',
+                    gicon: Gio.icon_new_for_string(Me.dir.get_path() + '/icons/gpu.ico')
+                }));
+                usage.add(new St.Label({ text: 'GPU percentage:' }));
+                this.percentage = new St.Label({
+                    text: this.stats.percentage,
+                    x_align: Clutter.ActorAlign.END,
+                    x_expand: true,
+                    y_expand: true
+                });
+                usage.add(this.percentage);
 
-            //MEMORY USAGE
-            let memoryUsage = new PopupMenu.PopupBaseMenuItem({ reactive: false, style_class: 'stats' });
-            memoryUsage.add(new St.Icon({
-                style_class: 'popup-menu-icon',
-                gicon: Gio.icon_new_for_string(Me.dir.get_path() + '/icons/memory.ico')
-            }));
-            memoryUsage.add(new St.Label({ text: 'Total memory usage:' }));
-            this.memoryUsage = new St.Label({
-                text: this.stats.memoryUsage,
-                x_align: Clutter.ActorAlign.END,
-                x_expand: true,
-                y_expand: true
-            });
-            memoryUsage.add(this.memoryUsage);
+                //MEMORY USAGE
+                let memoryUsage = new PopupMenu.PopupBaseMenuItem({ reactive: false, style_class: 'stats' });
+                memoryUsage.add(new St.Icon({
+                    style_class: 'popup-menu-icon',
+                    gicon: Gio.icon_new_for_string(Me.dir.get_path() + '/icons/memory.ico')
+                }));
+                memoryUsage.add(new St.Label({ text: 'Total memory usage:' }));
+                this.memoryUsage = new St.Label({
+                    text: this.stats.memoryUsage,
+                    x_align: Clutter.ActorAlign.END,
+                    x_expand: true,
+                    y_expand: true
+                });
+                memoryUsage.add(this.memoryUsage);
 
-            //PROCESSES
-            let processes = new PopupMenu.PopupBaseMenuItem({ reactive: false, style_class: 'stats' });
-            processes.add(new St.Icon({
-                style_class: 'popup-menu-icon',
-                gicon: Gio.icon_new_for_string(Me.dir.get_path() + '/icons/processes.svg')
-            }));
-            processes.add(new St.Label({ text: 'Process name' }));
-            processes.add(new St.Label({
-                text: 'Memory usage',
-                x_align: Clutter.ActorAlign.END,
-                x_expand: true,
-                y_expand: true
-            }));
+                //PROCESSES
+                let processes = new PopupMenu.PopupBaseMenuItem({ reactive: false, style_class: 'stats' });
+                processes.add(new St.Icon({
+                    style_class: 'popup-menu-icon',
+                    gicon: Gio.icon_new_for_string(Me.dir.get_path() + '/icons/processes.svg')
+                }));
+                processes.add(new St.Label({ text: 'Process name' }));
+                processes.add(new St.Label({
+                    text: 'Memory usage',
+                    x_align: Clutter.ActorAlign.END,
+                    x_expand: true,
+                    y_expand: true
+                }));
 
-            let processesMenuItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
-            this.boxProcesses = new St.BoxLayout({
-                vertical: true,
-                x_expand: true,
-            });
-            processesMenuItem.add(this.boxProcesses);
+                let processesMenuItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
+                this.boxProcesses = new St.BoxLayout({
+                    vertical: true,
+                    x_expand: true,
+                });
+                processesMenuItem.add(this.boxProcesses);
 
-            this.subItemStats.menu.addMenuItem(usage);
-            this.subItemStats.menu.addMenuItem(memoryUsage);
-            this.subItemStats.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-            this.subItemStats.menu.addMenuItem(processes);
-            this.subItemStats.menu.addMenuItem(processesMenuItem);
+                this.subItemStats.menu.addMenuItem(usage);
+                this.subItemStats.menu.addMenuItem(memoryUsage);
+                this.subItemStats.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+                this.subItemStats.menu.addMenuItem(processes);
+                this.subItemStats.menu.addMenuItem(processesMenuItem);
 
-            this.menu.addMenuItem(this.subItemStats);
-            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+                this.menu.addMenuItem(this.subItemStats);
+                this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+            } else {
+                let popupImageMenuItem = new PopupMenu.PopupImageMenuItem(
+                    'You must install nvidia-smi command for stats',
+                    'security-high-symbolic',
+                );
+                this.menu.addMenuItem(popupImageMenuItem);
+                this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+            }
 
             //------------------------------ mvidia stats end --------------------------
 
@@ -225,6 +234,10 @@ const Nvidia_pop = GObject.registerClass(
         }
 
         refreshStats(newStats) {
+            if (newStats === false) {
+                return;
+            }
+
             this.subItemStats.status.set_text(newStats.percentage);
             this.percentage.set_text(newStats.percentage);
             this.memoryUsage.set_text(newStats.memoryUsage);
